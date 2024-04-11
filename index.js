@@ -2,10 +2,14 @@ const express = require('express');
 const axios = require('axios').default;
 const { Telegraf } = require('telegraf');
 
-
+const User = require('./models/user.model');
+const { linkedinPost } = require('./gpt');
 
 // Config .env
 require('dotenv').config();
+
+// Config DB
+require('./db');
 
 
 // Creamos App de Express
@@ -24,6 +28,18 @@ app.post('/telegram-bot', (req, res) => {
     res.send('Responder a Telegram');
 });
 
+// MIDDLEWARE del Bot
+bot.use(async (ctx, next) => {
+
+
+    const user = await User.findOne({ telegram_id: ctx.from.id });
+    if (!user) {
+        ctx.from.telegram_id = ctx.from.id;
+        await User.create(ctx.from);
+    }
+    next();
+});
+
 // Comandos del Bot
 
 bot.command('prueba', async ctx => {
@@ -39,9 +55,9 @@ bot.command('start', ctx => {
      /start para volver al menú`);
 });
 
-bot.command('hola', ctx => {
-    ctx.reply('Hola ¿qué tal?');
-});
+// bot.command('hola', ctx => {
+//     ctx.reply('Hola ¿qué tal?');
+// });
 
 bot.command('tal', ctx => {
     ctx.reply(`¡Qué tal! ¡Es un placer saludarte! ¿Cómo estás hoy? Espero que estés teniendo un día maravilloso lleno de alegría y buenos momentos. Si hay algo en lo que pueda ayudarte o si simplemente quieres charlar, ¡estoy aquí para ti! ¡Que tengas un excelente día!`);
@@ -57,7 +73,7 @@ bot.command('tiempo', async ctx => {
 
         await ctx.replyWithHTML(`<b>Tiempo en ${ciudad.toUpperCase()}</b>
 
-- Temperatura: ${data.main.temp}ºC
+🌡️ Temperatura: ${data.main.temp}ºC
 - Mínima: ${data.main.temp_min}ºC
 - Máxima: ${data.main.temp_max}ºC
 - Humedad: ${data.main.humidity}%`);
@@ -69,6 +85,21 @@ bot.command('tiempo', async ctx => {
 
 });
 
+bot.command('hola', async ctx => {
+    // Mensaje que enviamos de forma aleatorio a cualquiera de los usuarios registrados en nuestro Bot
+
+    const mensaje = ctx.message.text.split('/mensaje')[1];
+
+    const users = await User.find();
+    const user = users[Math.floor(Math.random() * users.length)];
+
+    try {
+        // await bot.telegram.sendMessage(user.telegram_id, mensaje);
+        await ctx.reply(`Hola ${user.first_name}`);
+    } catch (error) {
+        ctx.reply(`Escribe /mensaje seguido de tu mensaje -> ejemplo: /mensaje Hola!!!`);
+    }
+});
 
 
 bot.command('dado', ctx => {
@@ -79,6 +110,26 @@ bot.command('dado', ctx => {
 bot.command('adios', ctx => {
     ctx.reply('Bye');
 });
+
+// CHATGPT Bot Commands
+// bot.command('ayuda', async ctx => {
+
+//     const idea = ctx.message.text.split('/ayuda')[1];
+
+//     const content = await linkedinPost(idea);
+
+//     ctx.reply(content);
+// });
+
+// bot.command('linkedin', async ctx => {
+//     // /linkedin como usar javascript en el servidor
+//     const idea = ctx.message.text.split('/linkedin')[1];
+
+//     const content = await linkedinPost(idea);
+
+//     ctx.reply(content);
+// });
+
 
 
 // Poner a escuchar en un Puerto
